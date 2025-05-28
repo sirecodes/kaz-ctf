@@ -254,7 +254,7 @@ def index():
                     file.save(filepath)
 
                     matches = compiled_rules.match(filepath)
-                    if matches:
+                    if not matches:
                         result = "Access Denied: Suspicious patterns detected."
                     else:
                         result = "Access Granted!"
