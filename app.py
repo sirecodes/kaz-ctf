@@ -9,12 +9,13 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 # Define YARA rules
 RULES = '''
-rule suspicious_pattern {
+rule access_key_rule {
     strings:
-        $suspicious = "flag{" ascii
-        $malicious = "malicious" ascii
+        // This is the ONLY string that will grant access.
+        // Make this unique and difficult to guess!
+        $secret_access_text = "Trust" ascii wide nocase
     condition:
-        $suspicious or $malicious
+        $secret_access_text
 }
 '''
 compiled_rules = yara.compile(source=RULES)
@@ -191,7 +192,7 @@ HTML = '''
         {% endif %}
 
         <div class="decoy-buttons">
-            <button onclick="alert('🚫 You just activated Kaz’s toaster.')">🧈 Engage Butter Injector</button>
+            <button onclick="alert('🤔 What is essential for a true alliance?')">🧈 Engage Butter Injector</button>
             <button onclick="alert('⛔ Access denied. Ask more politely.')">🙏 Ask Kaz Nicely</button>
             <button onclick="alert('💤 Nothing happened. Kaz is snoring now.')">😴 Put Guard to Sleep</button>
             <button onclick="alert('📡 Hacking Mars... failed.')">👽 Alien Packet Injector</button>
@@ -205,25 +206,67 @@ HTML = '''
 
 '''
 
+# @app.route("/", methods=["GET", "POST"])
+# def index():
+#     result = ""
+#     download_link = None
+#     if request.method == "POST":
+#         if "file" not in request.files:
+#             result = "No file uploaded"
+#         else:
+#             file = request.files["file"]
+#             filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+#             file.save(filepath)
+
+#             matches = compiled_rules.match(filepath)
+#             if matches:
+#                 result = "Access Denied: Suspicious patterns detected."
+#             else:
+#                 result = "Access Granted!"
+#                 download_link = "/flag"
+#     return render_template_string(HTML, result=result, download_link=download_link)
+
+ALLOWED_EXTENSIONS = {'txt'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     result = ""
-    download_link = None
+    download_link = None # This variable doesn't seem used in your provided snippet, but keeping it.
+
     if request.method == "POST":
         if "file" not in request.files:
-            result = "No file uploaded"
+            result = "No file part in the request." # More specific error
         else:
             file = request.files["file"]
-            filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-            file.save(filepath)
+            if file.filename == '':
+                result = "No selected file."
 
-            matches = compiled_rules.match(filepath)
-            if matches:
-                result = "Access Denied: Suspicious patterns detected."
+            elif not allowed_file(file.filename):
+                result = "Invalid file type. Only .txt files are allowed."
             else:
-                result = "Access Granted!"
-                download_link = "/flag"
+                file = request.files["file"]
+                filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+                try:
+                    file.save(filepath)
+
+                    matches = compiled_rules.match(filepath)
+                    if matches:
+                        result = "Access Denied: Suspicious patterns detected."
+                    else:
+                        result = "Access Granted!"
+                        download_link = "/flag"
+                except Exception as e:
+                    result = f"Error processing file: {e}"
+                finally:
+                    # Clean up the uploaded file after scanning (important for security and space)
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
     return render_template_string(HTML, result=result, download_link=download_link)
+
 
 @app.route("/flag")
 def flag():
